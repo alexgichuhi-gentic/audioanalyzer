@@ -1,13 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { put } from '@vercel/blob';
-import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { getDefaultUserId } from '@/lib/default-user';
 
 export async function POST(req: NextRequest) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const userId = await getDefaultUserId();
 
   try {
     const formData = await req.formData();
@@ -25,7 +22,7 @@ export async function POST(req: NextRequest) {
     // Create transcript record
     const transcript = await prisma.transcript.create({
       data: {
-        userId: session.user.id,
+        userId,
         filename: file.name,
         blobUrl: blob.url,
         fileSize: file.size,

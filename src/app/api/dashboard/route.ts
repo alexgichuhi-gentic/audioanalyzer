@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
-import type { Transcript } from '@prisma/client';
+import { getDefaultUserId } from '@/lib/default-user';
 
 function getWeekLabel(date: Date): string {
   const month = date.toLocaleString('en-US', { month: 'short' });
@@ -17,12 +16,7 @@ function getWeekStart(date: Date): Date {
 }
 
 export async function GET() {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
-  const userId = session.user.id;
+  const userId = await getDefaultUserId();
 
   const transcripts = await prisma.transcript.findMany({
     where: { userId, status: 'completed' },

@@ -1,14 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/lib/auth';
 import { analyzeTranscript } from '@/lib/claude';
+import { getDefaultUserId } from '@/lib/default-user';
 
 export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  const userId = await getDefaultUserId();
 
   try {
     const { transcriptId, profileId } = await req.json();
@@ -17,7 +14,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'transcriptId and profileId are required' }, { status: 400 });
     }
 
-    const analysisId = await analyzeTranscript(transcriptId, profileId, session.user.id);
+    const analysisId = await analyzeTranscript(transcriptId, profileId, userId);
 
     return NextResponse.json({ analysisId });
   } catch (error: any) {
