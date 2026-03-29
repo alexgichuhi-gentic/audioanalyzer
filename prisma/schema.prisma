@@ -1,0 +1,83 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  passwordHash  String
+  createdAt     DateTime  @default(now())
+
+  transcripts   Transcript[]
+  analyses      Analysis[]
+}
+
+model Transcript {
+  id              String    @id @default(cuid())
+  userId          String
+  filename        String
+  blobUrl         String
+  fileSize        Int       @default(0)
+  durationSeconds Float     @default(0)
+  language        String    @default("en")
+  rawText         String    @default("") @db.Text
+  segmentsJson    String    @default("[]") @db.Text
+  status          String    @default("pending")
+  error           String    @default("") @db.Text
+  createdAt       DateTime  @default(now())
+  completedAt     DateTime?
+
+  bookingStatus       String?
+  quotedAmount        Float?
+  customerName        String?
+  customerSentiment   String?
+  serviceType         String?
+  appointmentDate     String?
+
+  user          User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  analyses      Analysis[]
+
+  @@index([userId])
+  @@index([createdAt])
+  @@index([bookingStatus])
+}
+
+model AnalysisProfile {
+  id              String    @id @default(cuid())
+  name            String    @unique
+  description     String    @default("")
+  promptTemplate  String    @db.Text
+  isDefault       Boolean   @default(false)
+  isSystem        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  analyses        Analysis[]
+}
+
+model Analysis {
+  id              String    @id @default(cuid())
+  transcriptId    String
+  profileId       String
+  userId          String
+  promptSent      String    @default("") @db.Text
+  resultMarkdown  String    @default("") @db.Text
+  resultJson      String    @default("{}") @db.Text
+  status          String    @default("pending")
+  error           String    @default("") @db.Text
+  tokensUsed      Int       @default(0)
+  createdAt       DateTime  @default(now())
+  completedAt     DateTime?
+
+  transcript      Transcript      @relation(fields: [transcriptId], references: [id], onDelete: Cascade)
+  profile         AnalysisProfile @relation(fields: [profileId], references: [id])
+  user            User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([transcriptId])
+  @@index([userId])
+}
