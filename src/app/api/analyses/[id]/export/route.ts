@@ -37,12 +37,12 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
     });
   }
 
-  // PDF (HTML)
-  const html = generateAnalysisPdf(data);
-  return new NextResponse(html, {
+  // PDF
+  const pdfBuffer = generateAnalysisPdf(data);
+  return new NextResponse(new Uint8Array(pdfBuffer), {
     headers: {
-      'Content-Type': 'text/html',
-      'Content-Disposition': `attachment; filename="analysis-${id}.html"`,
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="analysis-${id}.pdf"`,
     },
   });
 }

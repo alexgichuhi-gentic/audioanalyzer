@@ -64,7 +64,7 @@ export default function AnalysisView({
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `analysis.${format === 'pdf' ? 'html' : 'docx'}`;
+    a.download = `analysis.${format}`;
     a.click();
     URL.revokeObjectURL(url);
   };

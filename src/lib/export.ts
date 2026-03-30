@@ -1,4 +1,5 @@
 import { Document, Packer, Paragraph, TextRun, HeadingLevel, AlignmentType } from 'docx';
+import jsPDF from 'jspdf';
 
 export function generateAnalysisPdf(data: {
   filename: string;
@@ -8,43 +9,133 @@ export function generateAnalysisPdf(data: {
   profileName: string;
   transcript: string;
   analysis: string;
-}): string {
-  // Return HTML that can be printed to PDF client-side
-  return `
-    <!DOCTYPE html>
-    <html>
-    <head>
-      <style>
-        body { font-family: 'Segoe UI', Calibri, Arial, sans-serif; margin: 40px; color: #333; line-height: 1.6; }
-        h1 { color: #4338ca; border-bottom: 2px solid #4338ca; padding-bottom: 8px; }
-        h2 { color: #4338ca; margin-top: 24px; }
-        h3 { color: #555; }
-        .meta { color: #666; font-size: 14px; margin-bottom: 24px; background: #f8f8f8; padding: 12px; border-radius: 8px; }
-        .meta span { display: inline-block; margin-right: 24px; }
-        .transcript { background: #f5f5f5; padding: 16px; border-radius: 8px; font-family: monospace; font-size: 13px; white-space: pre-wrap; max-height: 400px; overflow-y: auto; }
-        .analysis { margin-top: 24px; }
-        .footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #ddd; font-size: 12px; color: #999; }
-        table { border-collapse: collapse; width: 100%; margin: 12px 0; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-        th { background: #f0f0f0; }
-      </style>
-    </head>
-    <body>
-      <h1>Analysis: ${data.filename}</h1>
-      <div class="meta">
-        <span><strong>Duration:</strong> ${data.duration}</span>
-        <span><strong>Language:</strong> ${data.language}</span>
-        <span><strong>Date:</strong> ${data.date}</span>
-        <span><strong>Profile:</strong> ${data.profileName}</span>
-      </div>
-      <h2>Transcript</h2>
-      <div class="transcript">${data.transcript}</div>
-      <h2>Analysis</h2>
-      <div class="analysis">${data.analysis}</div>
-      <div class="footer">Generated on ${new Date().toLocaleString()}</div>
-    </body>
-    </html>
-  `;
+}): Buffer {
+  const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const margin = 15;
+  const maxWidth = pageWidth - margin * 2;
+  let y = 20;
+
+  const checkPage = (needed: number) => {
+    if (y + needed > doc.internal.pageSize.getHeight() - 15) {
+      doc.addPage();
+      y = 15;
+    }
+  };
+
+  const addWrappedText = (text: string, fontSize: number, isBold: boolean = false, color: [number, number, number] = [51, 51, 51]) => {
+    doc.setFontSize(fontSize);
+    doc.setFont('helvetica', isBold ? 'bold' : 'normal');
+    doc.setTextColor(...color);
+    const lines = doc.splitTextToSize(text, maxWidth);
+    for (const line of lines) {
+      checkPage(fontSize * 0.5);
+      doc.text(line, margin, y);
+      y += fontSize * 0.45;
+    }
+  };
+
+  // Title
+  doc.setFontSize(20);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(67, 56, 202);
+  doc.text(`Analysis: ${data.filename}`, margin, y);
+  y += 10;
+
+  // Divider
+  doc.setDrawColor(67, 56, 202);
+  doc.setLineWidth(0.5);
+  doc.line(margin, y, pageWidth - margin, y);
+  y += 8;
+
+  // Meta
+  doc.setFillColor(248, 248, 248);
+  doc.roundedRect(margin, y - 2, maxWidth, 14, 2, 2, 'F');
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(100, 100, 100);
+  doc.text(`Duration: ${data.duration}   |   Language: ${data.language}   |   Date: ${data.date}   |   Profile: ${data.profileName}`, margin + 4, y + 6);
+  y += 20;
+
+  // Transcript section
+  doc.setFontSize(14);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(67, 56, 202);
+  doc.text('Transcript', margin, y);
+  y += 8;
+
+  // Transcript content
+  doc.setFontSize(8);
+  doc.setFont('courier', 'normal');
+  doc.setTextColor(80, 80, 80);
+  const transcriptLines = doc.splitTextToSize(data.transcript || 'No transcript available.', maxWidth - 8);
+  for (const line of transcriptLines) {
+    checkPage(4);
+    doc.text(line, margin + 4, y);
+    y += 3.5;
+  }
+  y += 8;
+
+  // Analysis section
+  checkPage(20);
+  doc.setFontSize(14);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(67, 56, 202);
+  doc.text('Analysis', margin, y);
+  y += 8;
+
+  // Parse analysis markdown
+  const analysisLines = (data.analysis || 'No analysis available.').split('\n');
+  for (const line of analysisLines) {
+    if (line.startsWith('### ')) {
+      y += 3;
+      checkPage(8);
+      addWrappedText(line.replace('### ', ''), 11, true, [85, 85, 85]);
+      y += 2;
+    } else if (line.startsWith('## ')) {
+      y += 4;
+      checkPage(10);
+      addWrappedText(line.replace('## ', ''), 13, true, [67, 56, 202]);
+      y += 2;
+    } else if (line.startsWith('# ')) {
+      y += 4;
+      checkPage(12);
+      addWrappedText(line.replace('# ', ''), 15, true, [67, 56, 202]);
+      y += 2;
+    } else if (line.startsWith('- ') || line.startsWith('* ')) {
+      checkPage(5);
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(51, 51, 51);
+      doc.text('\u2022', margin + 2, y);
+      const bulletLines = doc.splitTextToSize(line.replace(/^[-*] /, ''), maxWidth - 10);
+      for (const bl of bulletLines) {
+        doc.text(bl, margin + 7, y);
+        y += 4;
+      }
+    } else if (line.trim() === '') {
+      y += 3;
+    } else {
+      // Handle bold markers
+      const cleanLine = line.replace(/\*\*/g, '');
+      const hasBold = line.includes('**');
+      addWrappedText(cleanLine, 9, hasBold);
+    }
+  }
+
+  // Footer
+  y += 10;
+  checkPage(10);
+  doc.setDrawColor(220, 220, 220);
+  doc.setLineWidth(0.3);
+  doc.line(margin, y, pageWidth - margin, y);
+  y += 5;
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'italic');
+  doc.setTextColor(150, 150, 150);
+  doc.text(`Generated on ${new Date().toLocaleString()}`, margin, y);
+
+  return Buffer.from(doc.output('arraybuffer'));
 }
 
 export async function generateAnalysisDocx(data: {
