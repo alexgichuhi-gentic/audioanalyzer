@@ -75,7 +75,7 @@ export default function UploadZone({ onUploadComplete }: { onUploadComplete: () 
             } catch {
               clearInterval(pollInterval);
             }
-          }, 3000);
+          }, 1500);
         } catch (err: any) {
           setFiles((prev) =>
             prev.map((f) =>

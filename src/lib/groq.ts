@@ -17,7 +17,7 @@ export async function transcribeAudio(audioUrl: string, filename: string) {
 
   const transcription = await getGroq().audio.transcriptions.create({
     file: file,
-    model: 'whisper-large-v3',
+    model: 'whisper-large-v3-turbo',
     response_format: 'verbose_json',
     language: 'en',
   });
