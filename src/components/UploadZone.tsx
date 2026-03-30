@@ -30,6 +30,15 @@ export default function UploadZone({ onUploadComplete }: { onUploadComplete: () 
           const formData = new FormData();
           formData.append('file', uploadFile.file);
 
+          // Upload + transcribe happens in one request
+          setFiles((prev) =>
+            prev.map((f) =>
+              f.file === uploadFile.file
+                ? { ...f, status: 'transcribing', progress: 30 }
+                : f
+            )
+          );
+
           const res = await fetch('/api/upload', { method: 'POST', body: formData });
           if (!res.ok) {
             const errData = await res.json().catch(() => ({}));
@@ -38,44 +47,28 @@ export default function UploadZone({ onUploadComplete }: { onUploadComplete: () 
 
           const { transcriptId } = await res.json();
 
-          setFiles((prev) =>
-            prev.map((f) =>
-              f.file === uploadFile.file
-                ? { ...f, status: 'transcribing', progress: 50, transcriptId }
-                : f
-            )
-          );
+          // Check final status
+          const statusRes = await fetch(`/api/transcripts/${transcriptId}`);
+          const data = await statusRes.json();
 
-          // Poll for transcription completion
-          const pollInterval = setInterval(async () => {
-            try {
-              const statusRes = await fetch(`/api/transcripts/${transcriptId}`);
-              const data = await statusRes.json();
-
-              if (data.status === 'completed') {
-                clearInterval(pollInterval);
-                setFiles((prev) =>
-                  prev.map((f) =>
-                    f.file === uploadFile.file
-                      ? { ...f, status: 'completed', progress: 100 }
-                      : f
-                  )
-                );
-                onUploadComplete();
-              } else if (data.status === 'failed') {
-                clearInterval(pollInterval);
-                setFiles((prev) =>
-                  prev.map((f) =>
-                    f.file === uploadFile.file
-                      ? { ...f, status: 'failed', error: data.error || 'Transcription failed' }
-                      : f
-                  )
-                );
-              }
-            } catch {
-              clearInterval(pollInterval);
-            }
-          }, 1500);
+          if (data.status === 'completed') {
+            setFiles((prev) =>
+              prev.map((f) =>
+                f.file === uploadFile.file
+                  ? { ...f, status: 'completed', progress: 100, transcriptId }
+                  : f
+              )
+            );
+            onUploadComplete();
+          } else {
+            setFiles((prev) =>
+              prev.map((f) =>
+                f.file === uploadFile.file
+                  ? { ...f, status: 'failed', error: data.error || 'Transcription failed' }
+                  : f
+              )
+            );
+          }
         } catch (err: any) {
           setFiles((prev) =>
             prev.map((f) =>

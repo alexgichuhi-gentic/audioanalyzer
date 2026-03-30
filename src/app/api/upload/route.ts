@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { put } from '@vercel/blob';
 import { prisma } from '@/lib/prisma';
 import { getDefaultUserId } from '@/lib/default-user';
+import { transcribeAudio } from '@/lib/groq';
+
+export const maxDuration = 60;
 
 export async function POST(req: NextRequest) {
   const userId = await getDefaultUserId();
@@ -27,17 +30,34 @@ export async function POST(req: NextRequest) {
         filename: file.name,
         blobUrl: blob.url,
         fileSize: file.size,
-        status: 'pending',
+        status: 'processing',
       },
     });
 
-    // Trigger transcription in background (fire and forget)
-    const baseUrl = req.nextUrl.origin;
-    fetch(`${baseUrl}/api/transcribe`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ transcriptId: transcript.id }),
-    }).catch(() => {});
+    // Transcribe inline — no separate background request
+    try {
+      const result = await transcribeAudio(blob.url, file.name);
+
+      await prisma.transcript.update({
+        where: { id: transcript.id },
+        data: {
+          rawText: result.text,
+          language: result.language,
+          durationSeconds: result.duration,
+          segmentsJson: JSON.stringify(result.segments),
+          status: 'completed',
+          completedAt: new Date(),
+        },
+      });
+    } catch (err: any) {
+      await prisma.transcript.update({
+        where: { id: transcript.id },
+        data: {
+          status: 'failed',
+          error: err.message || 'Transcription failed',
+        },
+      });
+    }
 
     return NextResponse.json({ transcriptId: transcript.id });
   } catch (error: any) {
