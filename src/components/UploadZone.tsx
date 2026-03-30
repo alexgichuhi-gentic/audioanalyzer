@@ -31,7 +31,10 @@ export default function UploadZone({ onUploadComplete }: { onUploadComplete: () 
           formData.append('file', uploadFile.file);
 
           const res = await fetch('/api/upload', { method: 'POST', body: formData });
-          if (!res.ok) throw new Error('Upload failed');
+          if (!res.ok) {
+            const errData = await res.json().catch(() => ({}));
+            throw new Error(errData.error || `Upload failed (${res.status})`);
+          }
 
           const { transcriptId } = await res.json();
 
@@ -158,7 +161,7 @@ export default function UploadZone({ onUploadComplete }: { onUploadComplete: () 
                 {f.status === 'completed' && <CheckCircle className="h-5 w-5 text-green-500" />}
                 {f.status === 'failed' && (
                   <span className="inline-flex items-center gap-1 text-xs text-red-600" title={f.error}>
-                    <XCircle className="h-4 w-4" /> Failed
+                    <XCircle className="h-4 w-4" /> {f.error || 'Failed'}
                   </span>
                 )}
               </div>
