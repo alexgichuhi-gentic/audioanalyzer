@@ -1,12 +1,16 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { seedProfiles } from '@/lib/seed-profiles';
-import { getDefaultUserId } from '@/lib/default-user';
+import { requireAuth } from '@/lib/auth-helpers';
 
 export async function GET() {
-  const userId = await getDefaultUserId();
+  let userId: string;
+  try {
+    userId = await requireAuth();
+  } catch {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
 
-  // Seed profiles on first request
   await seedProfiles();
 
   const transcripts = await prisma.transcript.findMany({

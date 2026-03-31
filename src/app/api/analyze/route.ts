@@ -1,11 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { analyzeTranscript } from '@/lib/claude';
-import { getDefaultUserId } from '@/lib/default-user';
+import { requireAuth } from '@/lib/auth-helpers';
 
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 export async function POST(req: NextRequest) {
-  const userId = await getDefaultUserId();
+  let userId: string;
+  try {
+    userId = await requireAuth();
+  } catch {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
 
   try {
     const { transcriptId, profileId } = await req.json();

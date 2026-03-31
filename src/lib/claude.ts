@@ -1,13 +1,13 @@
-import Anthropic from '@anthropic-ai/sdk';
+import Groq from 'groq-sdk';
 import { prisma } from './prisma';
 
-let anthropic: Anthropic | null = null;
+let groqClient: Groq | null = null;
 
-function getAnthropic() {
-  if (!anthropic) {
-    anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+function getGroq() {
+  if (!groqClient) {
+    groqClient = new Groq({ apiKey: process.env.GROQ_API_KEY });
   }
-  return anthropic;
+  return groqClient;
 }
 
 function renderTemplate(
@@ -81,17 +81,23 @@ export async function analyzeTranscript(
   });
 
   try {
-    const message = await getAnthropic().messages.create({
-      model: 'claude-sonnet-4-20250514',
+    const chatCompletion = await getGroq().chat.completions.create({
+      model: 'llama-3.3-70b-versatile',
       max_tokens: 4096,
-      messages: [{ role: 'user', content: prompt }],
+      messages: [
+        {
+          role: 'system',
+          content: 'You are an expert call analyst. Analyze transcripts thoroughly and provide structured results. Always include a JSON code block with extracted metrics when the prompt asks for it.',
+        },
+        { role: 'user', content: prompt },
+      ],
     });
 
-    const resultText =
-      message.content[0].type === 'text' ? message.content[0].text : '';
+    const resultText = chatCompletion.choices[0]?.message?.content || '';
     const jsonData = extractJsonFromResponse(resultText);
     const tokensUsed =
-      (message.usage?.input_tokens || 0) + (message.usage?.output_tokens || 0);
+      (chatCompletion.usage?.prompt_tokens || 0) +
+      (chatCompletion.usage?.completion_tokens || 0);
 
     await prisma.analysis.update({
       where: { id: analysis.id },

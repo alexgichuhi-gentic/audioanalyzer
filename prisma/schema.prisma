@@ -30,6 +30,8 @@ model Transcript {
   segmentsJson    String    @default("[]") @db.Text
   status          String    @default("pending")
   error           String    @default("") @db.Text
+  batchId         String?
+  comment         String?   @db.Text
   createdAt       DateTime  @default(now())
   completedAt     DateTime?
 
@@ -46,6 +48,7 @@ model Transcript {
   @@index([userId])
   @@index([createdAt])
   @@index([bookingStatus])
+  @@index([batchId])
 }
 
 model AnalysisProfile {

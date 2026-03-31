@@ -1,29 +1,35 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { put } from '@vercel/blob';
 import { prisma } from '@/lib/prisma';
-import { getDefaultUserId } from '@/lib/default-user';
+import { requireAuth } from '@/lib/auth-helpers';
 import { transcribeAudio } from '@/lib/groq';
 
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 export async function POST(req: NextRequest) {
-  const userId = await getDefaultUserId();
+  let userId: string;
+  try {
+    userId = await requireAuth();
+  } catch {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
 
   try {
     const formData = await req.formData();
     const file = formData.get('file') as File | null;
+    const batchId = formData.get('batchId') as string | null;
+    const comment = formData.get('comment') as string | null;
+    const profileId = formData.get('profileId') as string | null;
 
     if (!file) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 });
     }
 
-    // Upload to Vercel Blob
     const blob = await put(file.name, file, {
       access: 'public',
       addRandomSuffix: true,
     });
 
-    // Create transcript record
     const transcript = await prisma.transcript.create({
       data: {
         userId,
@@ -31,13 +37,13 @@ export async function POST(req: NextRequest) {
         blobUrl: blob.url,
         fileSize: file.size,
         status: 'processing',
+        batchId: batchId || undefined,
+        comment: comment || undefined,
       },
     });
 
-    // Transcribe inline — no separate background request
     try {
       const result = await transcribeAudio(blob.url, file.name);
-
       await prisma.transcript.update({
         where: { id: transcript.id },
         data: {
@@ -59,7 +65,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    return NextResponse.json({ transcriptId: transcript.id });
+    return NextResponse.json({ transcriptId: transcript.id, profileId });
   } catch (error: any) {
     return NextResponse.json({ error: error.message || 'Upload failed' }, { status: 500 });
   }
