@@ -20,6 +20,7 @@ export async function POST(req: NextRequest) {
     const batchId = formData.get('batchId') as string | null;
     const comment = formData.get('comment') as string | null;
     const profileId = formData.get('profileId') as string | null;
+    const project = formData.get('project') as string | null;
 
     if (!file) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 });
@@ -39,6 +40,7 @@ export async function POST(req: NextRequest) {
         status: 'processing',
         batchId: batchId || undefined,
         comment: comment || undefined,
+        project: project || undefined,
       },
     });
 

@@ -184,7 +184,7 @@ export default function TranscriptTable({ refreshKey }: { refreshKey: number }) 
             <tr className="border-b border-gray-200">
               <th className="text-left py-3 px-3 font-medium text-gray-500">Filename</th>
               <th className="text-left py-3 px-3 font-medium text-gray-500">Duration</th>
-              <th className="text-left py-3 px-3 font-medium text-gray-500">Lang</th>
+              <th className="text-left py-3 px-3 font-medium text-gray-500">Project</th>
               <th className="text-left py-3 px-3 font-medium text-gray-500">Status</th>
               <th className="text-left py-3 px-3 font-medium text-gray-500">Booking</th>
               <th className="text-left py-3 px-3 font-medium text-gray-500">Date</th>
@@ -205,7 +205,15 @@ export default function TranscriptTable({ refreshKey }: { refreshKey: number }) 
                   <td className="py-3 px-3 text-gray-600">
                     {t.durationSeconds > 0 ? formatDuration(t.durationSeconds) : '-'}
                   </td>
-                  <td className="py-3 px-3 text-gray-600 uppercase">{t.language}</td>
+                  <td className="py-3 px-3 text-gray-600">
+                    {t.project ? (
+                      <span className="inline-flex px-2 py-0.5 rounded-full text-xs font-medium bg-indigo-50 text-indigo-700">
+                        {t.project}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-gray-400">-</span>
+                    )}
+                  </td>
                   <td className="py-3 px-3">
                     <StatusBadge status={t.status} />
                   </td>

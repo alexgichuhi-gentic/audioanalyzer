@@ -21,6 +21,7 @@ export default function UploadZone({ onUploadComplete }: { onUploadComplete: () 
   const [showModal, setShowModal] = useState(false);
   const [files, setFiles] = useState<UploadFile[]>([]);
   const [comment, setComment] = useState('');
+  const [project, setProject] = useState('');
   const [selectedProfileId, setSelectedProfileId] = useState('');
   const [profiles, setProfiles] = useState<ProfileOption[]>([]);
   const [dragActive, setDragActive] = useState(false);
@@ -75,6 +76,7 @@ export default function UploadZone({ onUploadComplete }: { onUploadComplete: () 
         formData.append('file', uploadFile.file);
         formData.append('batchId', batchId);
         if (comment) formData.append('comment', comment);
+        if (project) formData.append('project', project);
         if (selectedProfileId) formData.append('profileId', selectedProfileId);
 
         setFiles((prev) =>
@@ -200,6 +202,7 @@ export default function UploadZone({ onUploadComplete }: { onUploadComplete: () 
                     if (allDone) {
                       setFiles([]);
                       setComment('');
+                      setProject('');
                     }
                   }
                 }}
@@ -276,6 +279,24 @@ export default function UploadZone({ onUploadComplete }: { onUploadComplete: () 
                 </div>
               )}
 
+              {/* Project */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Project
+                </label>
+                <input
+                  type="text"
+                  value={project}
+                  onChange={(e) => setProject(e.target.value)}
+                  disabled={uploading}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none"
+                  placeholder="e.g., Q2 Sales Calls, Customer Support, Training..."
+                />
+                <p className="text-xs text-gray-400 mt-1">
+                  Label these files with a project name for easy identification
+                </p>
+              </div>
+
               {/* Comment */}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
@@ -333,6 +354,7 @@ export default function UploadZone({ onUploadComplete }: { onUploadComplete: () 
                       if (allDone) {
                         setFiles([]);
                         setComment('');
+                      setProject('');
                       }
                     }
                   }}

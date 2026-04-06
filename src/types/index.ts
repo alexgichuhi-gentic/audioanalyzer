@@ -12,6 +12,7 @@ export interface TranscriptWithAnalyses {
   error: string;
   batchId: string | null;
   comment: string | null;
+  project: string | null;
   createdAt: string;
   completedAt: string | null;
   bookingStatus: string | null;

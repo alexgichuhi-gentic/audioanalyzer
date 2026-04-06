@@ -32,6 +32,7 @@ model Transcript {
   error           String    @default("") @db.Text
   batchId         String?
   comment         String?   @db.Text
+  project         String?
   createdAt       DateTime  @default(now())
   completedAt     DateTime?
 
