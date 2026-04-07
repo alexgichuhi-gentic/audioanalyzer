@@ -1,11 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { put } from '@vercel/blob';
 import { prisma } from '@/lib/prisma';
 import { requireAuth } from '@/lib/auth-helpers';
 import { transcribeAudio } from '@/lib/groq';
 
 export const maxDuration = 300;
 
+/**
+ * Called by the client AFTER it has uploaded the file directly to Vercel Blob
+ * via @vercel/blob/client `upload()`. This endpoint only receives the blob URL
+ * + batch metadata, creates the Transcript row, and runs transcription.
+ *
+ * This avoids Vercel's 4.5 MB serverless body limit, so files of any size
+ * (up to the 500 MB cap set in /api/upload/token) can be uploaded.
+ */
 export async function POST(req: NextRequest) {
   let userId: string;
   try {
@@ -15,28 +22,38 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    const formData = await req.formData();
-    const file = formData.get('file') as File | null;
-    const batchId = formData.get('batchId') as string | null;
-    const comment = formData.get('comment') as string | null;
-    const profileId = formData.get('profileId') as string | null;
-    const project = formData.get('project') as string | null;
+    const body = await req.json();
+    const {
+      blobUrl,
+      filename,
+      fileSize,
+      batchId,
+      comment,
+      project,
+      profileId,
+    } = body as {
+      blobUrl?: string;
+      filename?: string;
+      fileSize?: number;
+      batchId?: string | null;
+      comment?: string | null;
+      project?: string | null;
+      profileId?: string | null;
+    };
 
-    if (!file) {
-      return NextResponse.json({ error: 'No file provided' }, { status: 400 });
+    if (!blobUrl || !filename) {
+      return NextResponse.json(
+        { error: 'blobUrl and filename are required' },
+        { status: 400 }
+      );
     }
-
-    const blob = await put(file.name, file, {
-      access: 'public',
-      addRandomSuffix: true,
-    });
 
     const transcript = await prisma.transcript.create({
       data: {
         userId,
-        filename: file.name,
-        blobUrl: blob.url,
-        fileSize: file.size,
+        filename,
+        blobUrl,
+        fileSize: fileSize ?? 0,
         status: 'processing',
         batchId: batchId || undefined,
         comment: comment || undefined,
@@ -45,7 +62,7 @@ export async function POST(req: NextRequest) {
     });
 
     try {
-      const result = await transcribeAudio(blob.url, file.name);
+      const result = await transcribeAudio(blobUrl, filename);
       await prisma.transcript.update({
         where: { id: transcript.id },
         data: {
@@ -67,8 +84,11 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    return NextResponse.json({ transcriptId: transcript.id, profileId });
+    return NextResponse.json({ transcriptId: transcript.id, profileId: profileId ?? null });
   } catch (error: any) {
-    return NextResponse.json({ error: error.message || 'Upload failed' }, { status: 500 });
+    return NextResponse.json(
+      { error: error.message || 'Upload completion failed' },
+      { status: 500 }
+    );
   }
 }

@@ -2,6 +2,7 @@
 
 import { useCallback, useState, useEffect } from 'react';
 import { Upload, FileAudio, CheckCircle, XCircle, Loader2, X, FolderOpen } from 'lucide-react';
+import { upload } from '@vercel/blob/client';
 
 interface UploadFile {
   file: File;
@@ -68,24 +69,49 @@ export default function UploadZone({ onUploadComplete }: { onUploadComplete: () 
       try {
         setFiles((prev) =>
           prev.map((f, idx) =>
-            idx === fileIndex ? { ...f, status: 'uploading', progress: 20 } : f
+            idx === fileIndex ? { ...f, status: 'uploading', progress: 0 } : f
           )
         );
 
-        const formData = new FormData();
-        formData.append('file', uploadFile.file);
-        formData.append('batchId', batchId);
-        if (comment) formData.append('comment', comment);
-        if (project) formData.append('project', project);
-        if (selectedProfileId) formData.append('profileId', selectedProfileId);
+        // 1. Upload the file directly to Vercel Blob from the browser.
+        //    Bypasses the 4.5 MB serverless body limit. Supports up to 500 MB.
+        const blob = await upload(uploadFile.file.name, uploadFile.file, {
+          access: 'public',
+          handleUploadUrl: '/api/upload/token',
+          multipart: uploadFile.file.size > 8 * 1024 * 1024, // chunked for >8 MB
+          contentType: uploadFile.file.type || 'application/octet-stream',
+          onUploadProgress: ({ percentage }) => {
+            setFiles((prev) =>
+              prev.map((f, idx) =>
+                idx === fileIndex
+                  ? { ...f, status: 'uploading', progress: Math.round(percentage * 0.5) }
+                  : f
+              )
+            );
+          },
+        });
 
+        // 2. Tell the server the upload is done so it can create the transcript
+        //    record and run transcription.
         setFiles((prev) =>
           prev.map((f, idx) =>
-            idx === fileIndex ? { ...f, status: 'transcribing', progress: 40 } : f
+            idx === fileIndex ? { ...f, status: 'transcribing', progress: 60 } : f
           )
         );
 
-        const res = await fetch('/api/upload', { method: 'POST', body: formData });
+        const res = await fetch('/api/upload', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            blobUrl: blob.url,
+            filename: uploadFile.file.name,
+            fileSize: uploadFile.file.size,
+            batchId,
+            comment: comment || null,
+            project: project || null,
+            profileId: selectedProfileId || null,
+          }),
+        });
         if (!res.ok) {
           const errData = await res.json().catch(() => ({}));
           throw new Error(errData.error || `Upload failed (${res.status})`);
@@ -180,7 +206,7 @@ export default function UploadZone({ onUploadComplete }: { onUploadComplete: () 
         <p className="text-sm font-medium text-gray-700">
           Drop audio files here or click to browse
         </p>
-        <p className="text-xs text-gray-500 mt-1">MP3, WAV, M4A, OGG, FLAC, WebM (up to 60 min)</p>
+        <p className="text-xs text-gray-500 mt-1">MP3, WAV, M4A, OGG, FLAC, WebM — up to 500 MB / 60+ min</p>
       </div>
 
       {/* Batch Upload Modal */}
